@@ -2,65 +2,70 @@ def generate_date_formula(offset, add_comma):
     """
     Generate an IF snippet for a given offset in days.
     
-    This snippet first checks if the offset (as a literal number) is <= the value of {forecast}.
-    If true, it checks if the date (TODAY() + offset) is missing from field {A}.
-    If the date is missing, it outputs the date string.
-    If add_comma is True, appends a comma and space after the date.
+    Checks if the literal offset (i) is <= {forecast}. If yes, it then checks if
+    the formatted date (TODAY()+offset) does not already exist in {A}. If missing,
+    it outputs the date string. Optionally appends a comma and space.
     
     Args:
         offset (int): The day offset (0 for today, 1 for today+1, etc.).
         add_comma (bool): Whether to append a comma and space after the date.
     
     Returns:
-        str: A snippet of an Airtable formula.
+        str: An Airtable formula snippet.
     """
-    # Build the date expression for "today + offset" with timezone adjustment.
     date_expr = f"DATESTR(SET_TIMEZONE(DATEADD(TODAY(),{offset},'days'),Timezone))"
-    
-    # Inner IF: check if the date does not exist in {A}; if so, output the date (optionally concatenated with comma).
     inner_if = f"IF(NOT(FIND({date_expr}, {{A}})), {date_expr}"
     if add_comma:
         inner_if += " & \", \""
     inner_if += ")"
-    
-    # Outer IF: only execute the inner logic if the offset is <= {forecast}.
     snippet = f"IF({offset} <= {{forecast}}, {inner_if})"
     return snippet
 
 def combine_date_formulas(n):
     """
-    Combine the date-check snippets from offset 0 to offset n into one Airtable formula.
+    Combine the individual IF snippets from offset 0 to offset n into one Airtable formula.
     
-    For each offset i (0 <= i <= n), if i is <= {forecast} then it checks if the date (TODAY() + i)
-    is missing from {A}. Only missing dates are concatenated together.
+    For each day i (0 <= i <= n), if i is <= {forecast} then it checks whether the date
+    (TODAY()+i) is missing from {A}. Each missing date is output; otherwise, nothing is added.
+    The snippets are concatenated with CONCATENATE.
     
     Args:
         n (int): Maximum offset (in days) to check.
     
     Returns:
-        str: A complete Airtable formula using CONCATENATE.
+        str: The base Airtable formula as a concatenated string.
     
     Raises:
         ValueError: If n is not a non-negative integer.
     """
-    # Validate input n
     if not isinstance(n, int) or n < 0:
         raise ValueError("n must be a non-negative integer")
     
     snippets = []
-    # For each day from 0 to n (inclusive), generate the snippet.
     for offset in range(n + 1):
-        # Append a comma for every snippet except the last one (the outer loop always creates n+1 snippets)
         add_comma = (offset < n)
-        snippet = generate_date_formula(offset, add_comma)
-        snippets.append(snippet)
+        snippets.append(generate_date_formula(offset, add_comma))
     
-    # Combine all snippets with CONCATENATE. Newlines are added for readability.
-    combined_formula = "CONCATENATE(\n  " + ",\n  ".join(snippets) + "\n)"
-    return combined_formula
+    return "CONCATENATE(\n  " + ",\n  ".join(snippets) + "\n)"
+
+def combine_date_formulas_with_regex(n):
+    """
+    Wrap the combined date formulas inside a REGEX_REPLACE call to remove the trailing comma and space.
+    
+    Args:
+        n (int): Maximum offset (in days) to check.
+    
+    Returns:
+        str: A complete Airtable formula that outputs a comma-separated list of missing dates,
+             with any trailing comma removed.
+    """
+    base_formula = combine_date_formulas(n)
+    # Wrap the base formula using REGEX_REPLACE to remove a trailing comma and optional whitespace.
+    final_formula = f"REGEX_REPLACE({base_formula}, \",\\s*$\", \"\")"
+    return final_formula
 
 # Example usage:
 if __name__ == '__main__':
-    n = 3  # Change n to the desired maximum offset.
-    formula = combine_date_formulas(n)
+    n = 3  # Change n as needed (e.g., 3 checks today until today+3)
+    formula = combine_date_formulas_with_regex(n)
     print(formula)
