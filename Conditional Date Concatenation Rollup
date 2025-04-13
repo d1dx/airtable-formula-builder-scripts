@@ -60,7 +60,7 @@ def combine_date_formulas_with_regex(n):
              with any trailing comma removed.
     """
     base_formula = combine_date_formulas(n)
-    final_formula = f"REGEX_REPLACE({base_formula}, \",\\s*$\", \"\")"
+    final_formula = f"IF(values,REGEX_REPLACE({base_formula}, \",\\s*$\", \"\"))"
     return final_formula
 
 # Example usage:
