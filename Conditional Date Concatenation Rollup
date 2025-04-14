@@ -14,7 +14,7 @@ def generate_date_formula(offset, add_comma):
         str: A snippet of an Airtable formula.
     """
     date_expr = f"DATESTR(SET_TIMEZONE(DATEADD(TODAY(),{offset},'days'),Timezone))"
-    inner_if = f"IF(NOT(FIND({date_expr}, ARRAYJOIN(values))), {date_expr}"
+    inner_if = f"IF(FIND({date_expr}, ARRAYJOIN(values)), {date_expr}"
     if add_comma:
         inner_if += " & \", \""
     inner_if += ")"
